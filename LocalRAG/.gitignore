@@ -1,0 +1,7 @@
+__pycache__
+_temp
+chroma
+venv
+.env
+/poppler/
+*.db

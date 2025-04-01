@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    //    "incremental": true,
+//    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "skipLibCheck": true,
+    "lib": [
+      "ESNext", "ES2023",
+      "es2020.string"
+    ],
+    "typeRoots": [
+      "src/types",
+      "node_modules/@types"
+    ],
+    "types": [
+      "jest",
+      "node"
+    ]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.(test|spec).m?ts", "dist", "node_modules", "coverage"]
+}
