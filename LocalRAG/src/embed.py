@@ -4,16 +4,14 @@ from datetime import datetime
 
 from llama_index.core import Document
 from werkzeug.utils import secure_filename
-from langchain_community.document_loaders import TextLoader, UnstructuredPDFLoader, PyPDFLoader, WebBaseLoader, PyMuPDFLoader
-from langchain_unstructured import UnstructuredLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from .get_vector_db import get_vector_db
-from unstructured.cleaners.core import clean_extra_whitespace
 
 TEMP_FOLDER = os.getenv('TEMP_FOLDER', './_temp')
 FILES_FOLDER = os.getenv('TEMP_FOLDER', './_files')
 
-allowedPdfReaders = ['TextLoader', 'UnstructuredFileLoader', 'PyPDFLoader', 'UnstructuredPDFLoader', 'WebBaseLoader', 'PyMuPDFLoader']
+allowedPdfReaders = ['PyPDFLoader']
 
 # Function to check if the uploaded file is allowed (only PDF files)
 def allowed_file(filename):
@@ -33,82 +31,48 @@ def save_file(file, model, readerType, namespace):
     return file_path
 
 def splitTextAndImages(data:  list[Document]):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4096, chunk_overlap=256)  # maybe that should be also configurable
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4096, chunk_overlap=256)
     chunks = text_splitter.split_documents(data)
-
     return chunks
 
 def load_and_split_data(file_path, pdfReader):
     loader = None
+    data = None
 
     if pdfReader == 'PyPDFLoader':
-        loader =  PyPDFLoader(
+        loader = PyPDFLoader(
             file_path=file_path,
-            show_progress=True,
         )
-    elif pdfReader == 'WebBaseLoader':
-        loader = WebBaseLoader(
-            web_path=file_path,
-            bs_kwargs=dict(
-                parse_only=bs4.SoupStrainer(
-            #         class_=("post-content", "post-title", "post-header")
-                ),
-                show_progress=True,
-            ),
-        )
-    elif pdfReader == 'UnstructuredFileLoader':
-        loader = UnstructuredLoader(
-            file_path=file_path,
-            mode = "elements",
-            unstructured_kwargs=dict(
-                show_progress=True,
-                use_multithreading=True,
-            ),
-            strategy = "fast",
-            post_processors=[clean_extra_whitespace],
-        )
-        data = loader.load()
-    elif pdfReader == 'TextLoader':
-        loader = TextLoader(
-            file_path=file_path,
-            encoding="utf-8",
-        )
-    elif pdfReader == 'PyMuPDFLoader':
-        loader = PyMuPDFLoader(
-            file_path=file_path,
-            extract_images=True,
-            show_progress=True,
-        )
-    else:
-        loader = UnstructuredPDFLoader(file_path=file_path)
 
-    print("Loading file ... Started")
-
-    data = None
     try:
-        if data == None:
-            print("Nowa data")
+        if loader is not None:
+            print("Loading data with loader:", pdfReader)
             data = loader.load()
-    except Exception as err :
-        print(err)
+            print(f"Loaded {len(data)} documents")
+            for i, doc in enumerate(data[:3]):  # Show first 3 docs for debugging
+                print(f"Document {i}: {len(doc.page_content)} chars")
+        else:
+            print(f"No loader found for pdfReader: {pdfReader}")
+            return []
+    except Exception as err:
+        print(f"Error loading data: {err}")
         raise err
 
-    chunks = splitTextAndImages(data, file_path)
+    if not data:
+        print("No data loaded from file")
+        return []
 
-    print(14)
-    print("Loading file ... Finished")
-
-
-    print("Loading file ... Splited")
+    chunks = splitTextAndImages(data)
+    print(f"Split into {len(chunks)} chunks")
 
     return chunks
 
-def embed(file, model, pdfReader, namespace, query = None):
+def embed(file, model, pdfReader, namespace, query=None):
     if not (file.filename != '' and file and allowed_file(file.filename)):
         return False
 
     file_path = save_file(file, model, pdfReader, namespace)
-    chunks = load_and_split_data(file_path, pdfReader, query)
+    chunks = load_and_split_data(file_path, pdfReader)
     if isinstance(chunks, str):
         return chunks
     if not chunks and chunks != False:

@@ -1,4 +1,0 @@
-#torch install for CUDA 12.4!!
---index-url https://download.pytorch.org/whl/cu124
-torch==2.5.1+cu124
-torchvision==0.20.1+cu124

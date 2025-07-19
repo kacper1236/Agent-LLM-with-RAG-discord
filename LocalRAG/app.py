@@ -3,17 +3,14 @@ from dotenv import load_dotenv
 
 from src.new_embeddings import doEmbeddings
 
-from src.ticketRag.delete_documents import deleteDocuments
-from src.ticketRag.analyze_rules import ingestDiscordRules, analyzeRules, getDiscordRules
-from src.ticketRag.save_to_database import saveToDatabase
-from src.ticketRag.answer_to_user import llmJsonParser, answerToUser
-from src.searchFromInternet.search import searchToUser
+from src.ticket_rag.analyze_rules import getDiscordRules
+from src.ticket_rag.answer_to_user import llmJsonParser, answerToUser
+from src.search_from_internet.search import searchToUser
 
 load_dotenv()
 
 from flask import Flask, request, jsonify
 from src.embed import allowedPdfReaders, embed
-from unnecessary.query import queryRag, allowedRagTypes, query1, query2
 from src.get_vector_db import get_vector_db, allowedModels, embeddingSizes, allowedEmbeddingsModels
 
 import nltk
@@ -29,39 +26,35 @@ os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 
-@app.route('/embed2', methods=['GET'])
-def get__route_embed2():
+@app.route('/summarize_and_embed', methods=['GET'])
+def get_summarize_and_embed():
     return jsonify({
         'embeddings': allowedEmbeddingsModels,
+        'description': 'Endpoint do summaryzacji i embedowania dokumentów do lokalnej bazy danych'
     })
 
-@app.route('/embed2', methods=['POST'])
-def post__route_embed2():
+@app.route('/summarize_and_embed', methods=['POST'])
+def post_summarize_and_embed():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     
-
     data = request.form
 
     model = data['model']
-    if model not in allowedEmbeddingsModels:
+    if model not in allowedEmbeddingsModels and (model + ':latest') not in allowedEmbeddingsModels:
         return jsonify({"error": "No embedding model", "allowed": allowedEmbeddingsModels}), 400
 
     pdfReader = data['pdfReader']
     if pdfReader not in allowedPdfReaders:
         return jsonify({"error": "No pdfReader", "allowed": allowedPdfReaders}), 400
 
-
-    namespace = data['namespace']
-    if namespace == "":
-        return jsonify({"error": "No namespace"}), 400
-
+    namespace:str = os.getenv('NAMESPACE', 'user_files')
 
     embedded = doEmbeddings(file, model, pdfReader, namespace)
-    print(embedded)
+    #print(embedded)
 
     if isinstance(embedded, str):
         return jsonify({"error": embedded}), 400
@@ -88,7 +81,7 @@ def post__route_embed():
     data = request.form
 
     model = data['model']
-    if model not in allowedEmbeddingsModels:
+    if model not in allowedEmbeddingsModels and (model + ':latest') not in allowedEmbeddingsModels:
         return jsonify({"error": "No embedding model", "allowed": allowedEmbeddingsModels}), 400
 
     pdfReader = data['pdfReader']
@@ -114,35 +107,6 @@ def post__route_embed():
 
     return jsonify({"error": "File embedded unsuccessfully"}), 400
 
-@app.route('/query', methods=['POST'])
-def routeQuery():
-    data = request.get_json()
-
-    model = data['model']
-
-    if model not in allowedEmbeddingsModels:
-        if model == 'none' and data['ragType'] == 'none':
-            model = "nomic-embed-text"
-        else:
-            return jsonify({"error": "No embedding model", "allowed": allowedEmbeddingsModels}), 400
-
-    namespace = data['namespace']
-    if namespace == "":
-        return jsonify({"error": "No namespace"}), 400
-
-    ragType = data['ragType']
-    if ragType not in allowedRagTypes:
-        return jsonify({"error": "No ragType", "allowed": allowedRagTypes}), 400
-
-    meta = data['meta']
-
-    response = queryRag(data.get('query'), model, namespace, ragType, meta)
-
-    if response:
-        return jsonify({"message": response}), 200
-
-    return jsonify({"error": "Something went wrong"}), 400
-
 @app.route('/chat', methods = ['POST'])
 def routeChat():
     try:
@@ -154,7 +118,7 @@ def routeChat():
     if query == "":
         return jsonify({'message': 'No query specified'}), 400
     
-    max_iterations:int = data['max_iterations']
+    max_iterations:int = data['max_iterations'] if data['max_iterations'] is not None else 10
 
     response = searchToUser(query, max_iterations)
 
@@ -196,70 +160,18 @@ def routeReportUser():
         return jsonify({'error': 'Reported user and affected user are the same'}), 400
 
     discordRules = getDiscordRules()
-    #add serverRules
 
     answer = answerToUser(discordRules, context, reason, reportedUser, affectedUser)
 
     jsonAnswer = llmJsonParser(answer)
 
+    if jsonAnswer and jsonAnswer.get("response_from_llm"):
+        return jsonify(jsonAnswer.get("response_from_llm"))
+
     if jsonAnswer:
         return jsonify(jsonAnswer)
     
     return jsonify({'message': 'Something went wrong'}), 400
-
-    #need to end
-
-@app.route('/set_server_rules', methods = ['POST'])
-def setServerRules():
-    data = request.get_json()
-    if data.get('serverId') is None:
-        return jsonify({'message': 'No server ID provided'}), 400
-    if data.get("rules") is None:
-        return jsonify({'message': 'No rules provided'}), 400
-    if data.get("namespace") is None:
-        return jsonify({'message': "No namespace defined"}), 400
-    if data.get("document") is None:
-        return jsonify({'message': 'No document specified'}), 400
-
-    if deleteDocuments(data.get('document'), data.get('namespace')) is True:
-        summary = analyzeRules(data.get('rules'))
-        #przewalenie całego regulaminu
-        response = saveToDatabase(summary, data.get('namespace'))
-        if response:
-            return jsonify({"message": "Rules updated successfully"}), 200
-        return jsonify({"message": "Rules not updated successfully"}), 400
-    else:
-       return jsonify({'message': 'Rules doesn\'t exist'}), 400
-
-@app.route('/add_server_rules', methods = ['POST'])
-def addServerRules():
-    data = request.get_json()
-    if data.get('serverId') is None:
-        return jsonify({'message': 'No server ID provided'}), 400
-    if data.get('rules') is None:
-        return jsonify({'message'})
-    
-    #need to end
-
-@app.route('/query1', methods=['POST'])
-def route_query1():
-    data = request.get_json()
-    response = query1(data.get('query'))
-
-    if response:
-        return jsonify({"message": response}), 200
-
-    return jsonify({"error": "Something went wrong"}), 400
-
-@app.route('/query2', methods=['POST'])
-def route_query2():
-    data = request.get_json()
-    response = query2(data.get('query'))
-
-    if response:
-        return jsonify({"message": response}), 200
-
-    return jsonify({"error": "Something went wrong"}), 400
 
 @app.route('/delete', methods=['DELETE'])
 def route_delete():
@@ -267,11 +179,6 @@ def route_delete():
     db.delete_collection()
 
     return jsonify({"message": "Collection deleted successfully"}), 200
-
-@app.route('/test', methods = ['POST'])
-def test():
-    a = ingestDiscordRules()
-    return jsonify({'message': a}), 200
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)

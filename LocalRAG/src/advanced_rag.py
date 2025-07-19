@@ -14,6 +14,7 @@ class AdvancedRAG:
         self.dynamic_chunking_db = DynamicChunkingChromaDB(collection_name, embedding_model)
         self.chain_of_thought_db = ChainOfThoughtChromaDB(collection_name, embedding_model)
         self.feedback_db = FeedbackChromaDB(collection_name, embedding_model)
+        self.cached_db = CachedChromaDB(collection_name, embedding_model)
 
     def advanced_search(self, query: str):
         # Rozszerzanie zapytania

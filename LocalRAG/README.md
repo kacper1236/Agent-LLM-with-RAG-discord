@@ -6,6 +6,7 @@ This application is designed to handle queries using a language model and a vect
 
 1. **Python 3**: Ensure you have Python 3.x installed. Tested in 3.10+, but I recommend 3.12.X
 2. **Ollama**: This app requires Ollama to be installed and running locally. Follow the [Ollama installation guide](https://github.com/ollama/ollama/blob/main/README.md#quickstart) to set it up.
+3. **CUDA**: This app require graphic card from NVIDIA. Follow the [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) to setup CUDA for version 12.8.0
 
 ## Setup
 
@@ -27,7 +28,6 @@ $ source venv/bin/activate
 3. **Install dependencies**:
 ```bash
 $ pip install -r requirements.txt
-$ pip install -r requirements_torch.txt
 ```
 After install, need to do is write in console command
 ```bash
@@ -39,8 +39,7 @@ It gives a properly giving a pages, where they using JS for viewing.
 Ensure Ollama is installed and running locally. Refer to the [Ollama documentation](https://github.com/ollama/ollama/blob/main/README.md#quickstart) for setup instructions.
 - Install llm models
 ```bash
-$ ollama pull mistral
-$ ollama pull llama3.1:8b
+$ ollama pull llama3.1:latest
 ```
 - Install text embedding model
 ```bash

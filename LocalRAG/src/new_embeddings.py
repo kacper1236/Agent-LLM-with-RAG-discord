@@ -1,7 +1,7 @@
 from langchain.docstore.document import Document
 
 from .embed import load_and_split_data
-from .utils.get_databases import getDatabases
+from .get_vector_db import getDatabases
 from .utils.llm_get_tags import llmGetTags
 from .utils.llm_summarize_text import llmSummarizeText, llmCheckSummarizeText
 from .utils.save_file import saveFile
@@ -10,13 +10,13 @@ import re
 def doEmbeddings(file, model, pdfReader, namespace):
 
     file_path = saveFile(file, [model, namespace])
-    chunks = load_and_split_data(file_path, pdfReader, False, None)
+    chunks = load_and_split_data(file_path, pdfReader)
 
     if isinstance(chunks, str):
         return chunks
     if not chunks and chunks != False:
+        print("No chunks found")
         return False
-
 
     if chunks != False:
         db = getDatabases(model, namespace)
@@ -34,7 +34,7 @@ def doEmbeddings(file, model, pdfReader, namespace):
                 if isOk == 'yes' or count == 3:
                     chapterTags = llmGetTags(chapters)
                     summarizeTags = llmGetTags(summary)
-                    print('**', chapters, '\n**', summary, '\n**',summarizeTags,'\n**', chapterTags, "*\n\n")
+                    #print('**', chapters, '\n**', summary, '\n**',summarizeTags,'\n**', chapterTags, "*\n\n")
 
                     shouldBreak = True
 
@@ -42,26 +42,26 @@ def doEmbeddings(file, model, pdfReader, namespace):
 
                     chapterChunks = []
                     for chapter in chaptersSplit:
-                        print("====>", chapter)
+                        #print("====>", chapter)
                         found = re.match(r"((\s?)+?\d+\. Chunk \(?\d+ of \d+\)?:?\s+?)", chapter) #delete chunks
                         if found is None:
-                            print("==<0")
+                            #print("==<0")
                             found = re.match(r"((\s?)+?\d+\. Chunk \(?\d+ of \d+\)?=?>?\s+?)", chapter)  # delete chunks
                         if found is None:
-                            print("==<1")
+                            #print("==<1")
                             found = re.match(r"((\s?)+?Chunk \(?\d+ of \d+\)?:?\s+?)", chapter)  # delete chunks
                         if found is None:
-                            print("==<1b")
+                            #print("==<1b")
                             found = re.match(r"((\s?)+?Chunk \d+:?\s+?)", chapter)  # delete chunks
                         if found is None:
-                            print("===<2")
+                            #print("===<2")
                             found = re.match(r"((\s?)+?\d+\. Chunk \d+:?\s+)", chapter)
                         if found is None:
-                            print("===<3")
+                            #print("===<3")
                             found = re.match(r"((\s?)+?\d+\.\s+)", chapter)
 
                         if found is None:
-                            print("===<4")
+                            #print("===<4")
                             if len(chapterChunks) == 0: continue # ignore first summary stupid idea of llm after changes?
                             if chapterChunks[len(chapterChunks) -1]['body'] ==  '':
                                 chapterChunks[len(chapterChunks) -1]['body'] = chapterChunks[len(chapterChunks) -1]['body'] + chapter.replace('SUMMARY:', '').strip().lstrip("- ")
@@ -83,19 +83,18 @@ def doEmbeddings(file, model, pdfReader, namespace):
                             title = chapter['title']
                             chunkSummary = chapter['body']
 
-                            # print(chunk.page_content, len(chunk.page_content));
+                            #print(chunk.page_content, len(chunk.page_content))
                             document = Document(page_content=chunk.page_content, metadata={'title': title,'summary': chunkSummary, 'tags': chunkTagsString, 'file': file_path, 'finalSummary': summary})
                             documents.append(document)
                         except Exception as e:
                             print('=>>>>', i, chapter, chapterTags, chapterChunks)
                             print(chapters, summary, summarizeTags, "2\n\n")
                             print(e)
-                    db.add_documents([documents]) #powinno być documents jak już, poprawka konieczna
+                    db.add_documents(documents)
 
                         # this cursed code, EXECUTED PROMPT FOR EMBEDDING ___FOR EACH WORD IN GIVEN STRING___
                         # db.add_texts(chunk.page_content, metadata=[{'title': title},{'summary': chunkSummary}, {'tags': chunkTags}, {'file': file_path}, {'finalSummary': summary}],             embedding=FastEmbedEmbeddings(),)
                         # and this works correctly - WTF
                         # db.add_texts([chunk.page_content], metadata=[{'title': title},{'summary': chunkSummary}, {'tags': chunkTags}, {'file': file_path}, {'finalSummary': summary}],             embedding=FastEmbedEmbeddings(),)
-
- #nothing returned
+    return True
 

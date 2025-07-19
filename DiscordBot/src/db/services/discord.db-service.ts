@@ -1,7 +1,6 @@
-import { CacheType, CacheTypeReducer, ClientEvents, Events } from 'discord.js';
 import { createHash, UUID } from 'node:crypto';
 import { Includeable, WhereOptions } from 'sequelize/lib/model';
-import { CommandStatus, CommonCommandStatus } from '../../types/command-status.type.js';
+import { CommonCommandStatus } from '../../types/command-status.type.js';
 import { CommandType } from '../../types/command.type.js';
 import { deepSortObject } from '../../utils/deep-sort-object.util.js';
 import { DiscordChatsEntity, RAGChatRow } from '../entities/discord-chats.entity.js';
@@ -15,7 +14,7 @@ import { DiscordServersKickEntity, ServerKick } from 'db/entities/discord-server
 import { DiscordServersWarningEntity, ServerWarning } from 'db/entities/discord-servers-warnings.entity.js';
 import { DiscordLastAcceptedMessageEntity } from 'db/entities/discord-last-accepted-message.entity.js';
 import { DiscordRulesEntity, DiscordRulesMessage } from 'db/entities/discord-rules.entity.js';
-import { channel } from 'node:diagnostics_channel';
+import { DiscordLLMChatEntity, LLMMessages } from 'db/entities/discord-llm-chat.entity.js';
 
 export class DiscordDbServiceClass {
   constructor(
@@ -30,6 +29,7 @@ export class DiscordDbServiceClass {
     protected readonly warns: typeof DiscordServersWarningEntity = DiscordServersWarningEntity,
     protected readonly lastAcceptedMessage: typeof DiscordLastAcceptedMessageEntity = DiscordLastAcceptedMessageEntity,
     protected readonly rules: typeof DiscordRulesEntity = DiscordRulesEntity,
+    protected readonly llmChat: typeof DiscordLLMChatEntity = DiscordLLMChatEntity,
   ) {}
   
   async getServerById(id: string) {
@@ -360,6 +360,38 @@ export class DiscordDbServiceClass {
     rule.channelId = channelId;
     rule.message = message;
     await rule.save();
+  }
+
+  async getLLMChat(serverId: string, userId: string) {
+    return this.llmChat.findOne({
+      where: {
+        serverId,
+        userId,
+      },
+    });
+  }
+
+  async addLLMChat(serverId: string, userId: string, messages: LLMMessages[]) {
+    const chat = await this.getLLMChat(serverId, userId);
+    if (!chat) {
+      return this.llmChat.create({
+        serverId,
+        userId,
+        messages,
+      });
+    }
+    chat.messages.push(...messages);
+    chat.changed('messages', true);
+    await chat.save();
+  }
+
+  async deleteLLMChat(serverId: string, userId: string) {
+    return this.llmChat.destroy({
+      where: {
+        serverId,
+        userId,
+      },
+    });
   }
 
 }

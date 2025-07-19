@@ -17,9 +17,12 @@ import { DiscordServersWarningEntity } from './entities/discord-servers-warnings
 import { DiscordButtonsEntity } from './entities/discord-buttons.entity.js';
 import { DiscordServersBanEntity } from './entities/discord-servers-bans.entity.js';
 import { DiscordServersKickEntity } from './entities/discord-servers-kicks.entity.js';
+import { DiscordLLMChatEntity } from './entities/discord-llm-chat.entity.js';
 
 const MODELS: ModelCtor[] = [
   DiscordCommandsEntity,
+
+  DiscordLLMChatEntity,
   
   DiscordServersEntity,
   DiscordServersCommandsEntity,
@@ -36,6 +39,7 @@ const MODELS: ModelCtor[] = [
   DiscordLastAcceptedMessageEntity,
 
   DiscordRulesEntity,
+
 ];
 
 
